@@ -147,7 +147,7 @@
             <legend>Como você quer receber?</legend>
             <div class="option-grid">
               <label class="radio-card"><input type="radio" name="fulfillment" value="Retirada" checked><span><strong>Retirada</strong><small>Combinamos o horário</small></span></label>
-              <label class="radio-card"><input type="radio" name="fulfillment" value="Entrega"><span><strong>Entrega</strong><small>Taxa a confirmar</small></span></label>
+              <label class="radio-card"><input type="radio" name="fulfillment" value="Entrega"><span><strong>Entrega</strong><small>Taxa fixa de R$ 4,00</small></span></label>
             </div>
           </fieldset>
           <div id="paymentFields">
@@ -188,7 +188,15 @@
     </div>
 
     <div class="drawer-footer" id="drawerFooter">
-      <div class="cart-total"><span>Total dos produtos</span><strong id="cartTotal">R$ 0,00</strong></div>
+      <div class="delivery-summary" id="deliverySummary" hidden>
+        <span>Taxa de entrega</span>
+        <strong id="deliveryAmount">R$ 0,00</strong>
+      </div>
+
+      <div class="cart-total">
+        <span>Total do pedido</span>
+        <strong id="cartTotal">R$ 0,00</strong>
+      </div>
       <div class="drawer-actions">
         <button class="button button-secondary" id="prevStep" type="button" hidden>Voltar</button>
         <button class="button button-primary" id="nextStep" type="button" disabled>Continuar</button>

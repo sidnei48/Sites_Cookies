@@ -280,3 +280,21 @@ footer .brand-logo { width: 100px; height: 100px; }
   .brand-product { min-height: 210px; }
   .brand-product > img { width: 140px; height: 140px; }
 }
+
+[hidden] {
+  display: none !important;
+}
+
+.delivery-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.delivery-summary strong {
+  color: var(--blue);
+  font-weight: 600;
+}

@@ -47,6 +47,22 @@ function cartValue() {
   return products.reduce((sum, product) => sum + (cart[product.id] || 0) * product.price, 0);
 }
 
+function orderTotals() {
+  const subtotal = cartValue();
+
+  const isDelivery =
+    customerForm.elements.fulfillment.value === "Entrega";
+
+  const deliveryFee =
+    isDelivery && cartQuantity() > 0 ? 4 : 0;
+
+  return {
+    subtotal,
+    deliveryFee,
+    total: subtotal + deliveryFee
+  };
+}
+
 function renderMenu() {
   const visible = products.filter(product => activeFilter === "todos" || product.category === activeFilter);
   menuGrid.innerHTML = visible.map(product => {
@@ -87,9 +103,16 @@ function updateCart(id, delta) {
 function renderCart() {
   const selected = products.filter(product => cart[product.id]);
   const quantity = cartQuantity();
-  const total = cartValue();
+  const { total, deliveryFee } = orderTotals();
   cartCount.textContent = quantity;
   cartTotal.textContent = money.format(total);
+
+  document.querySelector("#deliveryAmount").textContent =
+    money.format(deliveryFee);
+
+  document.querySelector("#deliverySummary").hidden =
+    deliveryFee === 0;
+    
   document.querySelector("#menuCartSummary").textContent = quantity ? `${quantity} ${quantity === 1 ? "item" : "itens"} · ${money.format(total)}` : "Escolha seu primeiro cookie";
   emptyCart.hidden = selected.length > 0;
   cartItems.innerHTML = selected.map(product => `
@@ -139,58 +162,93 @@ function setStep(step) {
 
 function validateCustomer() {
   const name = document.querySelector("#customerName");
-  const day = document.querySelector("#preferredDay");
+  const day = document.querySelector("#preferredTime");
+  const payment = document.querySelector("#paymentMethod");
   const address = document.querySelector("#address");
+
   const fulfillment = customerForm.elements.fulfillment.value;
-  const fields = [name, day, ...(fulfillment === "Entrega" ? [address] : [])];
+
+  const fields = [
+    name,
+    payment,
+    day,
+    ...(fulfillment === "Entrega" ? [address] : [])
+  ];
+
   let valid = true;
+
   fields.forEach(field => {
     const ok = field.value.trim().length > 0;
+
     field.closest("label").classList.toggle("invalid", !ok);
+
     if (!ok) valid = false;
   });
-  if (!valid) fields.find(field => !field.value.trim())?.focus();
+
+  if (!valid) {
+    fields.find(field => !field.value.trim())?.focus();
+  }
+
   return valid;
 }
 
 function orderDetails() {
+  const fulfillment = customerForm.elements.fulfillment.value;
+
   return {
     name: document.querySelector("#customerName").value.trim(),
-    fulfillment: customerForm.elements.fulfillment.value,
-    address: document.querySelector("#address").value.trim(),
-    day: document.querySelector("#preferredDay").value,
+
+    fulfillment: fulfillment,
+
+    address: fulfillment === "Entrega"
+      ? document.querySelector("#address").value.trim()
+      : "",
+
+    day: document.querySelector("#preferredTime").value.trim(),
+
+    paymentMethod: document.querySelector("#paymentMethod").value,
+
     notes: document.querySelector("#notes").value.trim()
   };
 }
 
 function prepareReview() {
   const info = orderDetails();
+  const { subtotal, deliveryFee, total } = orderTotals();
   const selected = products.filter(product => cart[product.id]);
   document.querySelector("#reviewContent").innerHTML = `
     <div class="review-group"><h4>Itens</h4>
       ${selected.map(product => `<div class="review-row"><span>${cart[product.id]}× ${product.name}</span><strong>${money.format(cart[product.id] * product.price)}</strong></div>`).join("")}
-      <div class="review-row"><span>Total dos produtos</span><strong>${money.format(cartValue())}</strong></div>
-    </div>
+      <div class="review-row"><span>Subtotal dos cookies</span><strong>${money.format(subtotal)}</strong></div>
+      </div>
     <div class="review-group"><h4>Recebimento</h4>
       <div class="review-row"><span>Nome</span><strong>${escapeHtml(info.name)}</strong></div>
       <div class="review-row"><span>Opção</span><strong>${info.fulfillment}</strong></div>
       ${info.address ? `<div class="review-row"><span>Endereço</span><strong>${escapeHtml(info.address)}</strong></div>` : ""}
-      <div class="review-row"><span>Preferência</span><strong>${info.day}</strong></div>
+      <div class="review-row"><span>Preferência</span><strong>${escapeHtml(info.day)}</strong></div>
+<div class="review-row"><span>Pagamento</span><strong>${escapeHtml(info.paymentMethod)}</strong></div>
       ${info.notes ? `<div class="review-row"><span>Observação</span><strong>${escapeHtml(info.notes)}</strong></div>` : ""}
     </div>`;
 
   const lines = selected.map(product => `• ${cart[product.id]}x ${product.name} — ${money.format(cart[product.id] * product.price)}`);
   const message = [
-    "Olá, B&S Cookies! 🍪",
+    "Olá, B&S Cookies!",
     "",
     `Meu nome é ${info.name} e montei este pedido pelo site:`,
     ...lines,
     "",
-    `*Total dos produtos: ${money.format(cartValue())}*`,
-    info.fulfillment === "Entrega" ? `Forma: Entrega\nEndereço: ${info.address}\n(Aguardando confirmação da taxa)` : "Forma: Retirada",
-    `Preferência: ${info.day}`,
+        `Subtotal dos produtos: ${money.format(subtotal)}`,
+    `Taxa de entrega: ${money.format(deliveryFee)}`,
+    `*Total do pedido: ${money.format(total)}*`,
+
+    info.fulfillment === "Entrega"
+      ? `Forma: Entrega\nEndereço: ${info.address}`
+      : "Forma: Retirada",
+        `Preferência: ${info.day}`,
+    `Pagamento: ${info.paymentMethod}`,
     info.notes ? `Observações: ${info.notes}` : "",
     "",
+    
     "Podem confirmar a disponibilidade, por favor?"
   ].filter(Boolean).join("\n");
   whatsappOrder.href = `https://wa.me/5519994060215?text=${encodeURIComponent(message)}`;
@@ -236,12 +294,17 @@ nextStep.addEventListener("click", () => {
 });
 prevStep.addEventListener("click", () => setStep(currentStep - 1));
 
-customerForm.elements.fulfillment.forEach(radio => radio.addEventListener("change", () => {
-  const delivery = customerForm.elements.fulfillment.value === "Entrega";
-  document.querySelector("#addressFields").hidden = !delivery;
-  document.querySelector("#address").required = delivery;
-}));
+customerForm.elements.fulfillment.forEach(radio => {
+  radio.addEventListener("change", () => {
+    const delivery =
+      customerForm.elements.fulfillment.value === "Entrega";
 
+    document.querySelector("#addressFields").hidden = !delivery;
+    document.querySelector("#address").required = delivery;
+
+    renderCart();
+  });
+});
 customerForm.addEventListener("input", event => event.target.closest("label")?.classList.remove("invalid"));
 whatsappOrder.addEventListener("click", () => showToast("WhatsApp aberto — revise antes de enviar"));
 document.querySelector("#year").textContent = new Date().getFullYear();
